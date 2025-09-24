@@ -1,34 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Manage - Personalized Dashboard",
+  "name": "Manage - Personal Dashboard & Productivity",
   "version": "1.0.0",
-  "description": "A personalized new tab dashboard with weather animations, curated feeds, task planning, and AI-powered features",
+  "description": "A comprehensive productivity extension with task management, notes, and AI-powered features",
   "permissions": [
     "storage",
     "activeTab",
     "sidePanel",
-    "identity",
+    "contextMenus",
     "alarms",
-    "geolocation",
     "scripting",
-    "tabs",
-    "notifications"
+    "tabs"
   ],
   "host_permissions": [
-    "https://api.openweathermap.org/*",
-    "https://newsapi.org/*",
-    "https://generativelanguage.googleapis.com/*"
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "models/*",
-        "assets/*"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
+    "https://*/*",
+    "http://*/*"
   ],
   "chrome_url_overrides": {
     "newtab": "newtab.html"
@@ -41,22 +27,24 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "contentScript.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["contentScript.js"],
       "run_at": "document_idle"
     }
   ],
   "action": {
-    "default_title": "Open Manage Side Panel",
+    "default_title": "Open Manage Tools",
     "default_icon": {
       "16": "icons/icon16.png"
     }
   },
   "icons": {
     "16": "icons/icon16.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
