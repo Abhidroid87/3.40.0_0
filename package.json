@@ -8,7 +8,12 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "jest",
-    "build:extension": "npm run build && node scripts/build-extension.js"
+    "build:extension": "npm run build && node scripts/build-extension.js",
+    "expo:start": "expo start",
+    "expo:ios": "expo run:ios", 
+    "expo:android": "expo run:android",
+    "expo:web": "expo start --web",
+    "expo:build": "eas build --platform all"
   },
   "dependencies": {
     "@mediapipe/tasks-text": "^0.10.21",
