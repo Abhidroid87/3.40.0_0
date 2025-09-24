@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Manage - Personalized Dashboard",
+  "name": "Manage - Task & Notes Dashboard",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "A personalized new tab dashboard with weather animations, curated feeds, task planning, and AI-powered features",
   "permissions": [
     "storage",
@@ -18,12 +19,29 @@
     "https://api.openweathermap.org/*",
     "https://newsapi.org/*",
     "https://generativelanguage.googleapis.com/*"
+=======
+  "description": "A comprehensive task and note management dashboard with AI-powered features for better productivity",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "sidePanel",
+    "contextMenus"
+>>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
   ],
   "web_accessible_resources": [
     {
       "resources": [
         "models/*",
-        "assets/*"
+        "assets/*",
+        "dist/*"
       ],
       "matches": [
         "<all_urls>"
@@ -31,13 +49,14 @@
     }
   ],
   "chrome_url_overrides": {
-    "newtab": "newtab.html"
+    "newtab": "dist/newtab.html"
   },
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "dist/sidepanel.html"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -47,16 +66,20 @@
       "js": [
         "contentScript.js"
       ],
+<<<<<<< HEAD
       "run_at": "document_idle"
+=======
+      "run_at": "document_end"
+>>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
     }
   ],
-  "action": {
-    "default_title": "Open Manage Side Panel",
-    "default_icon": {
-      "16": "icons/icon16.png"
-    }
-  },
   "icons": {
-    "16": "icons/icon16.png"
+    "16": "dist/icons/icon16.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "dist/icons/icon16.png"
+    },
+    "default_title": "Manage Dashboard"
   }
 }

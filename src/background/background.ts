@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import { storageService } from '../services/storageService';
 import { apiService } from '../services/apiService';
+=======
+import { generateResponse, summarizeContent } from '../services/geminiService';
+>>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
 
 /**
  * Background service worker for Manage Chrome Extension
@@ -13,12 +17,16 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Manage extension installed');
   
   // Set up side panel
+<<<<<<< HEAD
   if ('sidePanel' in chrome) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
   }
   
   // Initialize default data
   initializeExtension();
+=======
+  await ensureSidePanel();
+>>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
 });
 
 // Message handling
