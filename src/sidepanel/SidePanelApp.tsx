@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageSquare, FileText, Loader2, Send, Sparkles } from 'lucide-react'
+import { MessageSquare, FileText, Loader2, Send, Sparkles, PenTool } from 'lucide-react'
 import { useSidePanelStore } from '@/store/sidePanelStore'
+import { DiagnosticPanel } from '@/components/DiagnosticPanel'
+import NotesEditor from '@/components/NotesEditor'
 
 function SidePanelApp() {
   const {
@@ -14,12 +16,14 @@ function SidePanelApp() {
   } = useSidePanelStore()
 
   const [chatInput, setChatInput] = useState('')
-  const [activeTab, setActiveTab] = useState<'summary' | 'chat'>('summary')
+  const [activeTab, setActiveTab] = useState<'summary' | 'chat' | 'notes' | 'diagnostics'>('summary')
 
   useEffect(() => {
     // Auto-summarize current page when side panel opens
-    summarizePage()
-  }, [summarizePage])
+    if (activeTab === 'summary') {
+      summarizePage()
+    }
+  }, [summarizePage, activeTab])
 
   const handleSendMessage = async () => {
     if (!chatInput.trim()) return
@@ -67,6 +71,28 @@ function SidePanelApp() {
           >
             <MessageSquare className="w-4 h-4" />
             <span>Chat</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'notes'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <PenTool className="w-4 h-4" />
+            <span>Notes</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('diagnostics')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'diagnostics'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Status</span>
           </button>
         </div>
       </div>
@@ -118,6 +144,30 @@ function SidePanelApp() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'notes' && (
+            <motion.div
+              key="notes"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="h-full overflow-y-auto"
+            >
+              <NotesEditor />
+            </motion.div>
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <motion.div
+              key="diagnostics"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="h-full p-4 overflow-y-auto"
+            >
+              <DiagnosticPanel />
             </motion.div>
           )}
 
