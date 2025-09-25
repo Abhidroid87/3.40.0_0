@@ -1,3 +1,5 @@
+import { s as storageService } from './storageService-BlI6jaZy.js';
+
 true&&(function polyfill() {
   const relList = document.createElement("link").relList;
   if (relList && relList.supports && relList.supports("modulepreload")) {
@@ -10187,7 +10189,7 @@ const createMotionComponent = /*@__PURE__*/ createMotionComponentFactory({
 
 const motion = /*@__PURE__*/ createDOMMotionComponentProxy(createMotionComponent);
 
-const __vite_import_meta_env__$1 = {};
+const __vite_import_meta_env__$2 = {};
 const createStoreImpl = (createState) => {
   let state;
   const listeners = /* @__PURE__ */ new Set();
@@ -10206,7 +10208,7 @@ const createStoreImpl = (createState) => {
     return () => listeners.delete(listener);
   };
   const destroy = () => {
-    if ((__vite_import_meta_env__$1 ? "production" : void 0) !== "production") {
+    if ((__vite_import_meta_env__$2 ? "production" : void 0) !== "production") {
       console.warn(
         "[DEPRECATED] The `destroy` method will be unsupported in a future version. Instead use unsubscribe function returned by subscribe. Everything will be garbage-collected if store is garbage-collected."
       );
@@ -10389,13 +10391,13 @@ withSelector_production.useSyncExternalStoreWithSelector = function (
 var withSelectorExports = withSelector.exports;
 const useSyncExternalStoreExports = /*@__PURE__*/getDefaultExportFromCjs(withSelectorExports);
 
-const __vite_import_meta_env__ = {};
+const __vite_import_meta_env__$1 = {};
 const { useDebugValue } = React$2;
 const { useSyncExternalStoreWithSelector } = useSyncExternalStoreExports;
 let didWarnAboutEqualityFn = false;
 const identity = (arg) => arg;
 function useStore(api, selector = identity, equalityFn) {
-  if ((__vite_import_meta_env__ ? "production" : void 0) !== "production" && equalityFn && !didWarnAboutEqualityFn) {
+  if ((__vite_import_meta_env__$1 ? "production" : void 0) !== "production" && equalityFn && !didWarnAboutEqualityFn) {
     console.warn(
       "[DEPRECATED] Use `createWithEqualityFn` instead of `create` or use `useStoreWithEqualityFn` instead of `useStore`. They can be imported from 'zustand/traditional'. https://github.com/pmndrs/zustand/discussions/1937"
     );
@@ -10412,7 +10414,7 @@ function useStore(api, selector = identity, equalityFn) {
   return slice;
 }
 const createImpl = (createState) => {
-  if ((__vite_import_meta_env__ ? "production" : void 0) !== "production" && typeof createState !== "function") {
+  if ((__vite_import_meta_env__$1 ? "production" : void 0) !== "production" && typeof createState !== "function") {
     console.warn(
       "[DEPRECATED] Passing a vanilla store will be unsupported in a future version. Instead use `import { useStore } from 'zustand'`."
     );
@@ -10423,6 +10425,493 @@ const createImpl = (createState) => {
   return useBoundStore;
 };
 const create = (createState) => createState ? createImpl(createState) : createImpl;
+
+const __vite_import_meta_env__ = {};
+function createJSONStorage(getStorage, options) {
+  let storage;
+  try {
+    storage = getStorage();
+  } catch (_e) {
+    return;
+  }
+  const persistStorage = {
+    getItem: (name) => {
+      var _a;
+      const parse = (str2) => {
+        if (str2 === null) {
+          return null;
+        }
+        return JSON.parse(str2, void 0 );
+      };
+      const str = (_a = storage.getItem(name)) != null ? _a : null;
+      if (str instanceof Promise) {
+        return str.then(parse);
+      }
+      return parse(str);
+    },
+    setItem: (name, newValue) => storage.setItem(
+      name,
+      JSON.stringify(newValue, void 0 )
+    ),
+    removeItem: (name) => storage.removeItem(name)
+  };
+  return persistStorage;
+}
+const toThenable = (fn) => (input) => {
+  try {
+    const result = fn(input);
+    if (result instanceof Promise) {
+      return result;
+    }
+    return {
+      then(onFulfilled) {
+        return toThenable(onFulfilled)(result);
+      },
+      catch(_onRejected) {
+        return this;
+      }
+    };
+  } catch (e) {
+    return {
+      then(_onFulfilled) {
+        return this;
+      },
+      catch(onRejected) {
+        return toThenable(onRejected)(e);
+      }
+    };
+  }
+};
+const oldImpl = (config, baseOptions) => (set, get, api) => {
+  let options = {
+    getStorage: () => localStorage,
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    partialize: (state) => state,
+    version: 0,
+    merge: (persistedState, currentState) => ({
+      ...currentState,
+      ...persistedState
+    }),
+    ...baseOptions
+  };
+  let hasHydrated = false;
+  const hydrationListeners = /* @__PURE__ */ new Set();
+  const finishHydrationListeners = /* @__PURE__ */ new Set();
+  let storage;
+  try {
+    storage = options.getStorage();
+  } catch (_e) {
+  }
+  if (!storage) {
+    return config(
+      (...args) => {
+        console.warn(
+          `[zustand persist middleware] Unable to update item '${options.name}', the given storage is currently unavailable.`
+        );
+        set(...args);
+      },
+      get,
+      api
+    );
+  }
+  const thenableSerialize = toThenable(options.serialize);
+  const setItem = () => {
+    const state = options.partialize({ ...get() });
+    let errorInSync;
+    const thenable = thenableSerialize({ state, version: options.version }).then(
+      (serializedValue) => storage.setItem(options.name, serializedValue)
+    ).catch((e) => {
+      errorInSync = e;
+    });
+    if (errorInSync) {
+      throw errorInSync;
+    }
+    return thenable;
+  };
+  const savedSetState = api.setState;
+  api.setState = (state, replace) => {
+    savedSetState(state, replace);
+    void setItem();
+  };
+  const configResult = config(
+    (...args) => {
+      set(...args);
+      void setItem();
+    },
+    get,
+    api
+  );
+  let stateFromStorage;
+  const hydrate = () => {
+    var _a;
+    if (!storage) return;
+    hasHydrated = false;
+    hydrationListeners.forEach((cb) => cb(get()));
+    const postRehydrationCallback = ((_a = options.onRehydrateStorage) == null ? void 0 : _a.call(options, get())) || void 0;
+    return toThenable(storage.getItem.bind(storage))(options.name).then((storageValue) => {
+      if (storageValue) {
+        return options.deserialize(storageValue);
+      }
+    }).then((deserializedStorageValue) => {
+      if (deserializedStorageValue) {
+        if (typeof deserializedStorageValue.version === "number" && deserializedStorageValue.version !== options.version) {
+          if (options.migrate) {
+            return options.migrate(
+              deserializedStorageValue.state,
+              deserializedStorageValue.version
+            );
+          }
+          console.error(
+            `State loaded from storage couldn't be migrated since no migrate function was provided`
+          );
+        } else {
+          return deserializedStorageValue.state;
+        }
+      }
+    }).then((migratedState) => {
+      var _a2;
+      stateFromStorage = options.merge(
+        migratedState,
+        (_a2 = get()) != null ? _a2 : configResult
+      );
+      set(stateFromStorage, true);
+      return setItem();
+    }).then(() => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(stateFromStorage, void 0);
+      hasHydrated = true;
+      finishHydrationListeners.forEach((cb) => cb(stateFromStorage));
+    }).catch((e) => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(void 0, e);
+    });
+  };
+  api.persist = {
+    setOptions: (newOptions) => {
+      options = {
+        ...options,
+        ...newOptions
+      };
+      if (newOptions.getStorage) {
+        storage = newOptions.getStorage();
+      }
+    },
+    clearStorage: () => {
+      storage == null ? void 0 : storage.removeItem(options.name);
+    },
+    getOptions: () => options,
+    rehydrate: () => hydrate(),
+    hasHydrated: () => hasHydrated,
+    onHydrate: (cb) => {
+      hydrationListeners.add(cb);
+      return () => {
+        hydrationListeners.delete(cb);
+      };
+    },
+    onFinishHydration: (cb) => {
+      finishHydrationListeners.add(cb);
+      return () => {
+        finishHydrationListeners.delete(cb);
+      };
+    }
+  };
+  hydrate();
+  return stateFromStorage || configResult;
+};
+const newImpl = (config, baseOptions) => (set, get, api) => {
+  let options = {
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => state,
+    version: 0,
+    merge: (persistedState, currentState) => ({
+      ...currentState,
+      ...persistedState
+    }),
+    ...baseOptions
+  };
+  let hasHydrated = false;
+  const hydrationListeners = /* @__PURE__ */ new Set();
+  const finishHydrationListeners = /* @__PURE__ */ new Set();
+  let storage = options.storage;
+  if (!storage) {
+    return config(
+      (...args) => {
+        console.warn(
+          `[zustand persist middleware] Unable to update item '${options.name}', the given storage is currently unavailable.`
+        );
+        set(...args);
+      },
+      get,
+      api
+    );
+  }
+  const setItem = () => {
+    const state = options.partialize({ ...get() });
+    return storage.setItem(options.name, {
+      state,
+      version: options.version
+    });
+  };
+  const savedSetState = api.setState;
+  api.setState = (state, replace) => {
+    savedSetState(state, replace);
+    void setItem();
+  };
+  const configResult = config(
+    (...args) => {
+      set(...args);
+      void setItem();
+    },
+    get,
+    api
+  );
+  api.getInitialState = () => configResult;
+  let stateFromStorage;
+  const hydrate = () => {
+    var _a, _b;
+    if (!storage) return;
+    hasHydrated = false;
+    hydrationListeners.forEach((cb) => {
+      var _a2;
+      return cb((_a2 = get()) != null ? _a2 : configResult);
+    });
+    const postRehydrationCallback = ((_b = options.onRehydrateStorage) == null ? void 0 : _b.call(options, (_a = get()) != null ? _a : configResult)) || void 0;
+    return toThenable(storage.getItem.bind(storage))(options.name).then((deserializedStorageValue) => {
+      if (deserializedStorageValue) {
+        if (typeof deserializedStorageValue.version === "number" && deserializedStorageValue.version !== options.version) {
+          if (options.migrate) {
+            return [
+              true,
+              options.migrate(
+                deserializedStorageValue.state,
+                deserializedStorageValue.version
+              )
+            ];
+          }
+          console.error(
+            `State loaded from storage couldn't be migrated since no migrate function was provided`
+          );
+        } else {
+          return [false, deserializedStorageValue.state];
+        }
+      }
+      return [false, void 0];
+    }).then((migrationResult) => {
+      var _a2;
+      const [migrated, migratedState] = migrationResult;
+      stateFromStorage = options.merge(
+        migratedState,
+        (_a2 = get()) != null ? _a2 : configResult
+      );
+      set(stateFromStorage, true);
+      if (migrated) {
+        return setItem();
+      }
+    }).then(() => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(stateFromStorage, void 0);
+      stateFromStorage = get();
+      hasHydrated = true;
+      finishHydrationListeners.forEach((cb) => cb(stateFromStorage));
+    }).catch((e) => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(void 0, e);
+    });
+  };
+  api.persist = {
+    setOptions: (newOptions) => {
+      options = {
+        ...options,
+        ...newOptions
+      };
+      if (newOptions.storage) {
+        storage = newOptions.storage;
+      }
+    },
+    clearStorage: () => {
+      storage == null ? void 0 : storage.removeItem(options.name);
+    },
+    getOptions: () => options,
+    rehydrate: () => hydrate(),
+    hasHydrated: () => hasHydrated,
+    onHydrate: (cb) => {
+      hydrationListeners.add(cb);
+      return () => {
+        hydrationListeners.delete(cb);
+      };
+    },
+    onFinishHydration: (cb) => {
+      finishHydrationListeners.add(cb);
+      return () => {
+        finishHydrationListeners.delete(cb);
+      };
+    }
+  };
+  if (!options.skipHydration) {
+    hydrate();
+  }
+  return stateFromStorage || configResult;
+};
+const persistImpl = (config, baseOptions) => {
+  if ("getStorage" in baseOptions || "serialize" in baseOptions || "deserialize" in baseOptions) {
+    if ((__vite_import_meta_env__ ? "production" : void 0) !== "production") {
+      console.warn(
+        "[DEPRECATED] `getStorage`, `serialize` and `deserialize` options are deprecated. Use `storage` option instead."
+      );
+    }
+    return oldImpl(config, baseOptions);
+  }
+  return newImpl(config, baseOptions);
+};
+const persist = persistImpl;
+
+const useAppStore = create()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      preferences: {
+        theme: "system",
+        dashboardLayout: {
+          showTasks: true,
+          showNotes: true,
+          showAISuggestions: true
+        }
+      },
+      tasks: [],
+      tasksLoading: false,
+      notes: [],
+      notesLoading: false,
+      showPopup: false,
+      currentPageContext: null,
+      // Preferences
+      setPreferences: (newPreferences) => {
+        const updatedPreferences = { ...get().preferences, ...newPreferences };
+        set({ preferences: updatedPreferences });
+        storageService.savePreferences(updatedPreferences);
+      },
+      // Task management
+      loadTasks: async () => {
+        set({ tasksLoading: true });
+        try {
+          const tasks = await storageService.getTasks();
+          set({ tasks, tasksLoading: false });
+        } catch (error) {
+          console.error("Failed to load tasks:", error);
+          set({ tasksLoading: false });
+        }
+      },
+      addTask: async (taskData) => {
+        try {
+          const newTask = await storageService.addTask(taskData);
+          set((state) => ({ tasks: [...state.tasks, newTask] }));
+        } catch (error) {
+          console.error("Failed to add task:", error);
+          throw error;
+        }
+      },
+      updateTask: async (taskId, updates) => {
+        try {
+          await storageService.updateTask(taskId, updates);
+          set((state) => ({
+            tasks: state.tasks.map(
+              (task) => task.id === taskId ? { ...task, ...updates, updatedAt: (/* @__PURE__ */ new Date()).toISOString() } : task
+            )
+          }));
+        } catch (error) {
+          console.error("Failed to update task:", error);
+          throw error;
+        }
+      },
+      deleteTask: async (taskId) => {
+        try {
+          await storageService.deleteTask(taskId);
+          set((state) => ({ tasks: state.tasks.filter((task) => task.id !== taskId) }));
+        } catch (error) {
+          console.error("Failed to delete task:", error);
+          throw error;
+        }
+      },
+      toggleTask: async (taskId) => {
+        const task = get().tasks.find((t) => t.id === taskId);
+        if (task) {
+          await get().updateTask(taskId, { completed: !task.completed });
+        }
+      },
+      addSubTask: async (taskId, subtaskData) => {
+        const task = get().tasks.find((t) => t.id === taskId);
+        if (!task) return;
+        const newSubTask = {
+          ...subtaskData,
+          id: Date.now().toString(),
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        const updatedSubtasks = [...task.subtasks || [], newSubTask];
+        await get().updateTask(taskId, { subtasks: updatedSubtasks });
+      },
+      toggleSubTask: async (taskId, subtaskId) => {
+        const task = get().tasks.find((t) => t.id === taskId);
+        if (!task || !task.subtasks) return;
+        const updatedSubtasks = task.subtasks.map(
+          (subtask) => subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
+        );
+        await get().updateTask(taskId, { subtasks: updatedSubtasks });
+      },
+      // Note management
+      loadNotes: async () => {
+        set({ notesLoading: true });
+        try {
+          const notes = await storageService.getNotes();
+          set({ notes, notesLoading: false });
+        } catch (error) {
+          console.error("Failed to load notes:", error);
+          set({ notesLoading: false });
+        }
+      },
+      addNote: async (noteData) => {
+        try {
+          const newNote = await storageService.addNote(noteData);
+          set((state) => ({ notes: [...state.notes, newNote] }));
+        } catch (error) {
+          console.error("Failed to add note:", error);
+          throw error;
+        }
+      },
+      updateNote: async (noteId, updates) => {
+        try {
+          await storageService.updateNote(noteId, updates);
+          set((state) => ({
+            notes: state.notes.map(
+              (note) => note.id === noteId ? { ...note, ...updates, updatedAt: (/* @__PURE__ */ new Date()).toISOString() } : note
+            )
+          }));
+        } catch (error) {
+          console.error("Failed to update note:", error);
+          throw error;
+        }
+      },
+      deleteNote: async (noteId) => {
+        try {
+          await storageService.deleteNote(noteId);
+          set((state) => ({ notes: state.notes.filter((note) => note.id !== noteId) }));
+        } catch (error) {
+          console.error("Failed to delete note:", error);
+          throw error;
+        }
+      },
+      getNotesByUrl: (url) => {
+        return get().notes.filter((note) => note.url === url);
+      },
+      // UI actions
+      setShowPopup: (show) => set({ showPopup: show }),
+      setPageContext: (context) => set({ currentPageContext: context })
+    }),
+    {
+      name: "manage-app-store",
+      partialize: (state) => ({
+        preferences: state.preferences,
+        tasks: state.tasks,
+        notes: state.notes
+      })
+    }
+  )
+);
 
 /**
  * @license lucide-react v0.344.0 - ISC
@@ -10544,4 +11033,4 @@ const X = createLucideIcon("X", [
   ["path", { d: "m6 6 12 12", key: "d8bk6v" }]
 ]);
 
-export { AnimatePresence as A, Check as C, FileText as F, React$2 as R, Tag as T, X, createLucideIcon as a, client as b, create as c, jsxRuntimeExports as j, motion as m, reactExports as r };
+export { AnimatePresence as A, Check as C, FileText as F, React$2 as R, Tag as T, X, client as a, create as b, createLucideIcon as c, jsxRuntimeExports as j, motion as m, reactExports as r, useAppStore as u };

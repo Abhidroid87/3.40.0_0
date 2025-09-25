@@ -1,4 +1,5 @@
 import { s as summarizeContent, g as generateResponse } from './assets/geminiService-UhRGqT1M.js';
+import { s as storageService } from './assets/storageService-BlI6jaZy.js';
 
 console.log("Background script loaded");
 async function ensureSidePanel() {
@@ -43,6 +44,30 @@ chrome.runtime.onInstalled.addListener(async () => {
   await ensureSidePanel();
 });
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action === "saveNote") {
+    const noteData = request.note;
+    if (noteData) {
+      storageService.addNote({
+        title: noteData.title,
+        content: noteData.content,
+        url: noteData.url,
+        domain: noteData.domain,
+        tags: []
+      }).then(() => {
+        sendResponse({ success: true });
+      }).catch((error) => {
+        console.error("Failed to save note:", error);
+        sendResponse({ success: false, error: "Failed to save note" });
+      });
+      return true;
+    }
+  }
+  if (request.action === "pageLoaded") {
+    const context = request.context;
+    console.log("Page loaded:", context);
+    sendResponse({ success: true });
+    return true;
+  }
   if (request.action === "summarizePage") {
     if (!request.content) {
       sendResponse({ success: false, error: "No content provided" });

@@ -3,24 +3,44 @@
  * Handles page interaction, content extraction, and popup injection
  */
 
+// Improved message handling with better error handling
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message:', request.action);
+  
   switch (request.action) {
     case 'getPageContent':
-      const content = extractPageContent();
-      sendResponse({ content });
+      try {
+        const content = extractPageContent();
+        sendResponse({ content });
+      } catch (error) {
+        console.error('Failed to extract content:', error);
+        sendResponse({ content: 'Failed to extract content from this page.' });
+      }
       break;
       
     case 'showPopup':
-      showManagePopup();
+      try {
+        showManagePopup();
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error('Failed to show popup:', error);
+        sendResponse({ success: false, error: error.message });
+      }
       break;
       
     case 'getPageContext':
-      const context = getPageContext();
-      sendResponse({ context });
+      try {
+        const context = getPageContext();
+        sendResponse({ context });
+      } catch (error) {
+        console.error('Failed to get page context:', error);
+        sendResponse({ context: null, error: error.message });
+      }
       break;
       
     default:
+      console.warn('Unknown action:', request.action);
       sendResponse({ error: 'Unknown action' });
   }
   

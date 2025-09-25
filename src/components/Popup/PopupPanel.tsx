@@ -278,7 +278,7 @@ const PopupPanel: React.FC = () => {
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="flex items-center space-x-3">
-                      <Brain className="w-6 h-6 text-purple-600" />
+                      <Sparkles className="w-6 h-6 text-purple-600" />
                       <div>
                         <h5 className="font-semibold text-gray-800">Analyze Content</h5>
                         <p className="text-sm text-gray-600">Get insights and suggestions about this content</p>

@@ -1,4 +1,5 @@
 import { generateResponse, summarizeContent } from '../services/geminiService'
+import { storageService } from '../services/storageService'
 
 // Background script loaded
 console.log('Background script loaded')
@@ -68,6 +69,35 @@ chrome.runtime.onMessage.addListener((
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response: MessageResponse) => void
 ): boolean => {
+  // Handle note saving from content script
+  if (request.action === 'saveNote') {
+    const noteData = (request as any).note;
+    if (noteData) {
+      storageService.addNote({
+        title: noteData.title,
+        content: noteData.content,
+        url: noteData.url,
+        domain: noteData.domain,
+        tags: []
+      }).then(() => {
+        sendResponse({ success: true });
+      }).catch(error => {
+        console.error('Failed to save note:', error);
+        sendResponse({ success: false, error: 'Failed to save note' });
+      });
+      return true;
+    }
+  }
+
+  // Handle page context updates
+  if (request.action === 'pageLoaded') {
+    const context = (request as any).context;
+    console.log('Page loaded:', context);
+    // Store page context for potential note linking
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.action === 'summarizePage') {
     if (!request.content) {
       sendResponse({ success: false, error: 'No content provided' })

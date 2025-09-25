@@ -1,5 +1,6 @@
-import { a as createLucideIcon, c as create, j as jsxRuntimeExports, r as reactExports, T as Tag, X, C as Check, F as FileText, A as AnimatePresence, m as motion, b as client, R as React } from './globals-CTBrUfLW.js';
+import { c as createLucideIcon, b as create, j as jsxRuntimeExports, r as reactExports, T as Tag, X, C as Check, u as useAppStore, F as FileText, A as AnimatePresence, m as motion, a as client, R as React } from './globals-CWcDEoHY.js';
 import { g as generateResponse, s as summarizeContent } from './geminiService-UhRGqT1M.js';
+import './storageService-BlI6jaZy.js';
 
 /**
  * @license lucide-react v0.344.0 - ISC
@@ -78,6 +79,19 @@ const Save = createLucideIcon("Save", [
 const Send = createLucideIcon("Send", [
   ["path", { d: "m22 2-7 20-4-9-9-4Z", key: "1q3vgg" }],
   ["path", { d: "M22 2 11 13", key: "nzbqef" }]
+]);
+
+/**
+ * @license lucide-react v0.344.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+
+
+const Smartphone = createLucideIcon("Smartphone", [
+  ["rect", { width: "14", height: "20", x: "5", y: "2", rx: "2", ry: "2", key: "1yt0o3" }],
+  ["path", { d: "M12 18h.01", key: "mhygvu" }]
 ]);
 
 /**
@@ -170,6 +184,92 @@ const useSidePanelStore = create((set, get) => ({
     }
   }
 }));
+
+class BridgeService {
+  BRIDGE_URL = "https://manage-dashboard.com";
+  // Replace with your domain
+  /**
+   * Send data to mobile app via website bridge
+   */
+  async sendToMobile(data) {
+    try {
+      const bridgeUrl = `${this.BRIDGE_URL}?source=extension`;
+      const bridgeTab = await chrome.tabs.create({ url: bridgeUrl });
+      if (!bridgeTab.id) {
+        throw new Error("Failed to create bridge tab");
+      }
+      setTimeout(async () => {
+        try {
+          await chrome.tabs.sendMessage(bridgeTab.id, {
+            type: "EXTENSION_DATA_TRANSFER",
+            payload: {
+              ...data,
+              type: "sync",
+              source: "extension",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            }
+          });
+        } catch (error) {
+          console.error("Failed to send data to bridge:", error);
+          await this.injectBridgeScript(bridgeTab.id, data);
+        }
+      }, 2e3);
+    } catch (error) {
+      console.error("Failed to send data to mobile:", error);
+      throw error;
+    }
+  }
+  /**
+   * Inject script to send data to bridge website
+   */
+  async injectBridgeScript(tabId, data) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (transferData) => {
+          window.postMessage({
+            type: "EXTENSION_DATA_TRANSFER",
+            payload: transferData
+          }, window.location.origin);
+        },
+        args: [{
+          ...data,
+          type: "sync",
+          source: "extension",
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        }]
+      });
+    } catch (error) {
+      console.error("Failed to inject bridge script:", error);
+      throw error;
+    }
+  }
+  /**
+   * Generate deep link for mobile app
+   */
+  generateMobileDeepLink(data) {
+    const encodedData = encodeURIComponent(JSON.stringify({
+      ...data,
+      type: "sync",
+      source: "extension",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    return `manageapp://transfer?data=${encodedData}`;
+  }
+  /**
+   * Generate universal link for mobile app
+   */
+  generateUniversalLink(data) {
+    const encodedData = encodeURIComponent(JSON.stringify({
+      ...data,
+      type: "sync",
+      source: "extension",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    return `${this.BRIDGE_URL}/transfer?data=${encodedData}`;
+  }
+}
+const bridgeService = new BridgeService();
 
 function DiagnosticPanel() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "glass-card p-4", children: [
@@ -386,8 +486,10 @@ function SidePanelApp() {
     sendChatMessage,
     clearChat
   } = useSidePanelStore();
+  const { tasks, notes } = useAppStore();
   const [chatInput, setChatInput] = reactExports.useState("");
   const [activeTab, setActiveTab] = reactExports.useState("summary");
+  const [syncStatus, setSyncStatus] = reactExports.useState("idle");
   reactExports.useEffect(() => {
     if (activeTab === "summary") {
       summarizePage();
@@ -402,6 +504,18 @@ function SidePanelApp() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+  const handleSyncToMobile = async () => {
+    setSyncStatus("syncing");
+    try {
+      await bridgeService.sendToMobile({ tasks, notes });
+      setSyncStatus("success");
+      setTimeout(() => setSyncStatus("idle"), 3e3);
+    } catch (error) {
+      console.error("Sync failed:", error);
+      setSyncStatus("error");
+      setTimeout(() => setSyncStatus("idle"), 3e3);
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col", children: [
@@ -441,6 +555,17 @@ function SidePanelApp() {
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(PenTool, { className: "w-4 h-4" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Notes" })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            onClick: () => setActiveTab("sync"),
+            className: `flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === "sync" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"}`,
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Smartphone, { className: "w-4 h-4" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Sync" })
             ]
           }
         ),
@@ -503,6 +628,73 @@ function SidePanelApp() {
           children: /* @__PURE__ */ jsxRuntimeExports.jsx(NotesEditor, {})
         },
         "notes"
+      ),
+      activeTab === "sync" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        motion.div,
+        {
+          initial: { opacity: 0, x: 20 },
+          animate: { opacity: 1, x: 0 },
+          exit: { opacity: 0, x: -20 },
+          className: "h-full p-4 overflow-y-auto",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-lg font-semibold text-gray-800 mb-2", children: "Mobile Sync" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-600 text-sm", children: "Sync your tasks and notes with the mobile app" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-gray-200/50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-4 text-center", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-2xl font-bold text-blue-600", children: tasks.length }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-gray-600", children: "Tasks" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-2xl font-bold text-yellow-600", children: notes.length }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-gray-600", children: "Notes" })
+              ] })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                motion.button,
+                {
+                  onClick: handleSyncToMobile,
+                  disabled: syncStatus === "syncing",
+                  className: "w-full p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2",
+                  whileHover: { scale: 1.02 },
+                  whileTap: { scale: 0.98 },
+                  children: syncStatus === "syncing" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Loader2, { className: "w-5 h-5 animate-spin" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Syncing..." })
+                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Smartphone, { className: "w-5 h-5" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Sync to Mobile App" })
+                  ] })
+                }
+              ),
+              syncStatus !== "idle" && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                motion.div,
+                {
+                  initial: { opacity: 0, y: 10 },
+                  animate: { opacity: 1, y: 0 },
+                  className: `p-3 rounded-lg text-center ${syncStatus === "success" ? "bg-green-100 text-green-800" : syncStatus === "error" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`,
+                  children: [
+                    syncStatus === "success" && "✅ Data sent to mobile app!",
+                    syncStatus === "error" && "❌ Sync failed. Please try again.",
+                    syncStatus === "syncing" && "🔄 Opening mobile app..."
+                  ]
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-gray-50 rounded-lg p-4", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold text-gray-800 mb-2", children: "How it works:" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("ol", { className: "text-sm text-gray-600 space-y-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: '1. Click "Sync to Mobile App"' }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "2. A bridge page will open" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "3. Your mobile app will launch automatically" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "4. Data will be synced to your phone" })
+              ] })
+            ] })
+          ] })
+        },
+        "sync"
       ),
       activeTab === "diagnostics" && /* @__PURE__ */ jsxRuntimeExports.jsx(
         motion.div,
