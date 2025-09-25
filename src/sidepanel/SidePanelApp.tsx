@@ -1,16 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MessageSquare, 
-  FileText, 
-  Loader2, 
-  Send, 
-  Sparkles, 
-  PenTool,
-  Smartphone,
-  Download,
-  Sync
-} from 'lucide-react';
+import { MessageSquare, FileText, Loader2, Send, Sparkles, PenTool, Smartphone, Download, FolderSync as Sync } from 'lucide-react';
 import { useSidePanelStore } from '../store/sidePanelStore';
 import { useAppStore } from '../store/appStore';
 import { bridgeService } from '../services/bridgeService';
