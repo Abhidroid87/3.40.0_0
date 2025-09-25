@@ -2,24 +2,6 @@
   "manifest_version": 3,
   "name": "Manage - Task & Notes Dashboard",
   "version": "1.0.0",
-<<<<<<< HEAD
-  "description": "A personalized new tab dashboard with weather animations, curated feeds, task planning, and AI-powered features",
-  "permissions": [
-    "storage",
-    "activeTab",
-    "sidePanel",
-    "identity",
-    "alarms",
-    "geolocation",
-    "scripting",
-    "tabs",
-    "notifications"
-  ],
-  "host_permissions": [
-    "https://api.openweathermap.org/*",
-    "https://newsapi.org/*",
-    "https://generativelanguage.googleapis.com/*"
-=======
   "description": "A comprehensive task and note management dashboard with AI-powered features for better productivity",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'",
@@ -34,7 +16,6 @@
   "optional_permissions": [
     "sidePanel",
     "contextMenus"
->>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
   ],
   "web_accessible_resources": [
     {
@@ -66,11 +47,7 @@
       "js": [
         "contentScript.js"
       ],
-<<<<<<< HEAD
-      "run_at": "document_idle"
-=======
       "run_at": "document_end"
->>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
     }
   ],
   "icons": {
