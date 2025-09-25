@@ -1,192 +1,109 @@
-<<<<<<< HEAD
-import { storageService } from '../services/storageService';
-import { apiService } from '../services/apiService';
-=======
-import { generateResponse, summarizeContent } from '../services/geminiService';
->>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
+import { generateResponse, summarizeContent } from '../services/geminiService'
 
-/**
- * Background service worker for Manage Chrome Extension
- * Handles extension lifecycle, message passing, and sync operations
- */
+// Background script loaded
+console.log('Background script loaded')
 
-console.log('Manage background script loaded');
-
-// Extension installation
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Manage extension installed');
-  
-  // Set up side panel
-<<<<<<< HEAD
+// Ensure side panel and context menu are set up
+async function ensureSidePanel() {
   if ('sidePanel' in chrome) {
-    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+    try {
+      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+      chrome.contextMenus.create({
+        id: 'openSidePanel',
+        title: 'Open Manage Side Panel',
+        contexts: ['all']
+      })
+      return true
+    } catch (error) {
+      console.error('Error setting up side panel:', error)
+      return false
+    }
   }
-  
-  // Initialize default data
-  initializeExtension();
-=======
-  await ensureSidePanel();
->>>>>>> 490fb2e (chore: fix manifest for install; stub AI services; harden background; dedupe TaskPanel; build extension)
-});
+  return false
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'openSidePanel') {
+    if ('sidePanel' in chrome) {
+      try {
+        if (tab?.windowId) {
+          await chrome.sidePanel.open({ windowId: tab.windowId })
+        }
+      } catch (error) {
+        console.error('Error opening side panel:', error)
+      }
+    } else {
+      chrome.windows.create({
+        url: chrome.runtime.getURL('sidepanel.html'),
+        type: 'popup',
+        width: 400,
+        height: 600
+      })
+    }
+  }
+})
+
+chrome.runtime.onInstalled.addListener(async () => {
+  console.log('Extension installed')
+  await ensureSidePanel()
+})
 
 // Message handling
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background received message:', request);
+interface MessageRequest {
+  action: 'summarizePage' | 'chatWithAI'
+  content?: string
+  message?: string
+  context?: string
+}
 
-  switch (request.action) {
-    case 'getPageContext':
-      handleGetPageContext(sender.tab)
-        .then(response => sendResponse({ success: true, ...response }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
+interface MessageResponse {
+  success: boolean
+  summary?: string
+  response?: string
+  error?: string
+}
 
-    case 'syncData':
-      handleSyncData()
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-
-    case 'aiPlaceholder':
-      handleAIPlaceholder(request.type, request.content)
-        .then(response => sendResponse({ success: true, ...response }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
-
-    default:
-      sendResponse({ success: false, error: 'Unknown action' });
-      return false;
-  }
-});
-
-// Context menu setup
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'openManageTools',
-    title: 'Open Manage Tools',
-    contexts: ['page', 'selection']
-  });
-});
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'openManageTools' && tab?.id) {
-    // Inject content script to show popup
-    chrome.tabs.sendMessage(tab.id, { action: 'showPopup' });
-  }
-});
-
-// Periodic sync (every 30 minutes)
-chrome.alarms.create('syncData', { periodInMinutes: 30 });
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'syncData') {
-    handleSyncData();
-  }
-});
-
-/**
- * Initialize extension with default data
- */
-async function initializeExtension(): Promise<void> {
-  try {
-    // Check if this is first install
-    const preferences = await storageService.getPreferences();
-    
-    if (!preferences.name) {
-      // Set up default preferences
-      await storageService.savePreferences({
-        theme: 'system',
-        dashboardLayout: {
-          showTasks: true,
-          showNotes: true,
-          showAISuggestions: true
-        }
-      });
+chrome.runtime.onMessage.addListener((
+  request: MessageRequest,
+  _sender: chrome.runtime.MessageSender,
+  sendResponse: (response: MessageResponse) => void
+): boolean => {
+  if (request.action === 'summarizePage') {
+    if (!request.content) {
+      sendResponse({ success: false, error: 'No content provided' })
+      return true
     }
 
-    console.log('Extension initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize extension:', error);
-  }
-}
+    summarizeContent(request.content)
+      .then(summary => {
+        sendResponse({ success: true, summary: summary.text })
+      })
+      .catch(err => {
+        console.error('Summarization failed:', err)
+        sendResponse({ success: false, error: 'Failed to summarize content' })
+      })
 
-/**
- * Get context information about the current page
- */
-async function handleGetPageContext(tab?: chrome.tabs.Tab): Promise<any> {
-  if (!tab) {
-    throw new Error('No tab information available');
+    return true
   }
 
-  return {
-    url: tab.url || '',
-    title: tab.title || '',
-    domain: tab.url ? new URL(tab.url).hostname : '',
-    timestamp: new Date().toISOString()
-  };
-}
-
-/**
- * Handle data synchronization with backend
- */
-async function handleSyncData(): Promise<void> {
-  try {
-    console.log('Starting data sync...');
-    
-    // Get local data
-    const [tasks, notes, preferences] = await Promise.all([
-      storageService.getTasks(),
-      storageService.getNotes(),
-      storageService.getPreferences()
-    ]);
-
-    // Sync with backend (placeholder)
-    await Promise.all([
-      apiService.syncTasks(tasks),
-      apiService.syncNotes(notes)
-    ]);
-
-    console.log('Data sync completed successfully');
-  } catch (error) {
-    console.error('Data sync failed:', error);
-    // Don't throw - sync failures shouldn't break the extension
-  }
-}
-
-/**
- * Handle AI placeholder actions
- */
-async function handleAIPlaceholder(type: string, content: string): Promise<any> {
-  console.log(`AI placeholder called: ${type} with content length: ${content.length}`);
-  
-  try {
-    switch (type) {
-      case 'summarize':
-        const summary = await apiService.summarizeContent(content);
-        return { result: summary };
-        
-      case 'generateTasks':
-        const suggestions = await apiService.generateTaskSuggestions(content);
-        return { suggestions };
-        
-      case 'analyze':
-        const analysis = await apiService.analyzeContent(content);
-        return { analysis };
-        
-      default:
-        throw new Error(`Unknown AI action: ${type}`);
+  if (request.action === 'chatWithAI') {
+    if (!request.message) {
+      sendResponse({ success: false, error: 'No message provided' })
+      return true
     }
-  } catch (error) {
-    console.error('AI placeholder action failed:', error);
-    return { 
-      result: `AI ${type} placeholder - implement when API is connected`,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
 
-// Export for testing
-export {
-  initializeExtension,
-  handleGetPageContext,
-  handleSyncData,
-  handleAIPlaceholder
-};
+    generateResponse(request.message, request.context)
+      .then(response => {
+        sendResponse({ success: true, response: response.text })
+      })
+      .catch(err => {
+        console.error('Chat failed:', err)
+        sendResponse({ success: false, error: 'Failed to generate response' })
+      })
+
+    return true
+  }
+
+  sendResponse({ success: false, error: 'Unknown action' })
+  return true
+})
