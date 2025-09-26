@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Task, Note, SyncData, TransferData } from '../types';
+import { db } from './firebaseService';
+import { COLLECTIONS } from '@shared/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 /**
  * Sync service for mobile app
@@ -162,6 +165,22 @@ class SyncService {
       lastSync: new Date().toISOString(),
       deviceId: deviceId || 'unknown'
     };
+  }
+
+  /**
+   * Synchronize the latest snapshot with Firestore. This is a placeholder for
+   * the full cloud sync implementation that will be shared with the extension.
+   */
+  async pushSnapshotToCloud(userId: string): Promise<void> {
+    const payload = await this.exportData();
+    await setDoc(
+      doc(db, COLLECTIONS.USERS, userId),
+      {
+        ...payload,
+        updatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
   }
 }
 

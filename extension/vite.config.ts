@@ -35,7 +35,16 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src')
+      '@': path.resolve(__dirname, 'src'),
+      '@shared': path.resolve(__dirname, '../shared'),
+      'firebase/app': path.resolve(__dirname, 'node_modules/firebase/app'),
+      'firebase/auth': path.resolve(__dirname, 'node_modules/firebase/auth'),
+      'firebase/firestore': path.resolve(__dirname, 'node_modules/firebase/firestore')
+    }
+  },
+  server: {
+    fs: {
+      allow: [path.resolve(__dirname, '..')]
     }
   }
 })

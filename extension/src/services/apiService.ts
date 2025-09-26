@@ -1,128 +1,132 @@
-import { Task, Note, UserPreferences } from '../types';
+import env from '../config/environment';
 
-/**
- * API service for backend communication
- * Contains placeholder methods for future backend integration
- */
+const GRAPHQL_ENDPOINT = env.api.baseUrl;
+
+interface GraphQLResponse<T> {
+  data?: T;
+  errors?: Array<{ message: string }>;
+}
+
+interface AISummaryResult {
+  aiSummarize: {
+    text: string;
+    tokens: number;
+  };
+}
+
+interface AIGenerateResult {
+  aiGenerate: {
+    text: string;
+    tokens: number;
+  };
+}
+
+interface AITaskSuggestionsResult {
+  aiTaskSuggestions: string[];
+}
+
+interface AIAnalyzeResult {
+  aiAnalyze: {
+    summary: string;
+    suggestions: string[];
+  };
+}
+
 class ApiService {
-  private readonly BASE_URL = 'http://localhost:3001/api'; // Placeholder URL
   private authToken: string | null = null;
 
-  // Authentication placeholders
-  async login(email: string, password: string): Promise<{ token: string; user: any }> {
-    console.log('Login placeholder called with:', { email });
-    // TODO: Implement actual login
-    return {
-      token: 'mock_token_' + Date.now(),
-      user: { id: '1', email, name: 'User' }
-    };
-  }
-
-  async register(email: string, password: string, name: string): Promise<{ token: string; user: any }> {
-    console.log('Register placeholder called with:', { email, name });
-    // TODO: Implement actual registration
-    return {
-      token: 'mock_token_' + Date.now(),
-      user: { id: '1', email, name }
-    };
-  }
-
-  // Task API placeholders
-  async syncTasks(localTasks: Task[]): Promise<Task[]> {
-    console.log('Task sync placeholder called with', localTasks.length, 'tasks');
-    // TODO: Implement actual task sync
-    // This should:
-    // - Send local changes to backend
-    // - Receive remote changes
-    // - Handle conflicts
-    return localTasks;
-  }
-
-  async createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
-    console.log('Create task placeholder called:', task);
-    // TODO: Implement actual task creation
-    return {
-      ...task,
-      id: 'backend_' + Date.now(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      subtasks: task.subtasks || []
-    };
-  }
-
-  // Notes API placeholders
-  async syncNotes(localNotes: Note[]): Promise<Note[]> {
-    console.log('Notes sync placeholder called with', localNotes.length, 'notes');
-    // TODO: Implement actual notes sync
-    return localNotes;
-  }
-
-  async createNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note> {
-    console.log('Create note placeholder called:', note);
-    // TODO: Implement actual note creation
-    return {
-      ...note,
-      id: 'backend_' + Date.now(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  // AI API placeholders
-  async summarizeContent(content: string): Promise<string> {
-    console.log('AI summarize placeholder called with content length:', content.length);
-    // TODO: Implement actual AI summarization
-    return 'AI summarization will be implemented here. Content length: ' + content.length + ' characters.';
-  }
-
-  async generateTaskSuggestions(input: string): Promise<string[]> {
-    console.log('AI task suggestions placeholder called with:', input);
-    // TODO: Implement actual AI task generation
-    return [
-      'Break down "' + input + '" into smaller steps',
-      'Set a specific deadline',
-      'Add relevant tags or categories',
-      'Consider dependencies and prerequisites'
-    ];
-  }
-
-  async analyzeContent(content: string): Promise<{ summary: string; suggestions: string[] }> {
-    console.log('AI content analysis placeholder called');
-    // TODO: Implement actual AI analysis
-    return {
-      summary: 'Content analysis will be implemented here.',
-      suggestions: ['Suggestion 1', 'Suggestion 2', 'Suggestion 3']
-    };
-  }
-
-  // Utility methods
   setAuthToken(token: string): void {
     this.authToken = token;
   }
 
-  private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const url = `${this.BASE_URL}${endpoint}`;
-    const headers = {
+  private buildHeaders(extra?: HeadersInit): HeadersInit {
+    return {
       'Content-Type': 'application/json',
       ...(this.authToken && { Authorization: `Bearer ${this.authToken}` }),
-      ...options.headers
+      ...extra
     };
+  }
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers
-      });
+  private async graphqlRequest<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+    const response = await fetch(GRAPHQL_ENDPOINT, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify({ query, variables })
+    });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`GraphQL error: ${response.status} ${response.statusText}`);
     }
+
+    const payload = (await response.json()) as GraphQLResponse<T>;
+
+    if (payload.errors && payload.errors.length > 0) {
+      throw new Error(payload.errors.map(error => error.message).join('; '));
+    }
+
+    if (!payload.data) {
+      throw new Error('GraphQL response missing data');
+    }
+
+    return payload.data;
+  }
+
+  async summarizeContent(content: string): Promise<{ text: string; tokens: number }> {
+    const query = `
+      query Summarize($content: String!) {
+        aiSummarize(content: $content) {
+          text
+          tokens
+        }
+      }
+    `;
+
+    const { aiSummarize } = await this.graphqlRequest<AISummaryResult>(query, { content });
+    return aiSummarize;
+  }
+
+  async generateTaskSuggestions(input: string): Promise<string[]> {
+    const query = `
+      query TaskSuggestions($input: String!) {
+        aiTaskSuggestions(input: $input)
+      }
+    `;
+
+    const { aiTaskSuggestions } = await this.graphqlRequest<AITaskSuggestionsResult>(query, { input });
+    return aiTaskSuggestions;
+  }
+
+  async analyzeContent(content: string): Promise<{ summary: string; suggestions: string[] }> {
+    const query = `
+      query Analyze($content: String!) {
+        aiAnalyze(content: $content) {
+          summary
+          suggestions
+        }
+      }
+    `;
+
+    const { aiAnalyze } = await this.graphqlRequest<AIAnalyzeResult>(query, { content });
+    return aiAnalyze;
+  }
+
+  async generateResponse(input: string, context?: string): Promise<{ text: string; tokens: number }> {
+    const query = `
+      query Generate($input: String!, $context: String) {
+        aiGenerate(input: $input, context: $context) {
+          text
+          tokens
+        }
+      }
+    `;
+
+    const variables: Record<string, unknown> = { input };
+    if (typeof context === 'string') {
+      variables.context = context;
+    }
+
+    const { aiGenerate } = await this.graphqlRequest<AIGenerateResult>(query, variables);
+    return aiGenerate;
   }
 }
 

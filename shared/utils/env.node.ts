@@ -15,17 +15,6 @@ const gatherSources = (): EnvRecord[] => {
     sources.push(process.env as EnvRecord);
   }
 
-  // `import.meta` is only available in ESM environments (Vite / extension build)
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const metaEnv = (import.meta as any)?.env as EnvRecord | undefined;
-    if (metaEnv) {
-      sources.push(metaEnv);
-    }
-  } catch (error) {
-    // ignore: `import.meta` not supported in this runtime (e.g., React Native)
-  }
-
   if (typeof globalThis !== 'undefined' && globalThis.__APP_ENV__) {
     sources.push(globalThis.__APP_ENV__);
   }

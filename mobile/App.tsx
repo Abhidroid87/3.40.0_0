@@ -14,6 +14,7 @@ import DataTransferScreen from './src/screens/DataTransferScreen';
 // Import services
 import { syncService } from './src/services/syncService';
 import { storageService } from './src/services/storageService';
+import './src/config/environment';
 
 // Types
 import type { Task, Note } from './src/types';
@@ -100,14 +101,19 @@ export default function App() {
     type: 'sync' | 'import';
     source: 'extension' | 'website';
   }) => {
+    const payload = {
+      ...transferData,
+      timestamp: new Date().toISOString()
+    } as const;
+
     try {
       if (transferData.type === 'sync') {
         // Sync data with local storage
-        await syncService.syncFromExternal(transferData);
+        await syncService.syncFromExternal(payload);
         Alert.alert('Success', 'Data synced successfully!');
       } else if (transferData.type === 'import') {
         // Import new data
-        await syncService.importData(transferData);
+        await syncService.importData(payload);
         Alert.alert('Success', 'Data imported successfully!');
       }
     } catch (error) {

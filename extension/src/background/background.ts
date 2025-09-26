@@ -1,4 +1,5 @@
 import { generateResponse, summarizeContent } from '../services/geminiService'
+import { apiService } from '../services/apiService'
 import { storageService } from '../services/storageService'
 
 // Background script loaded
@@ -51,16 +52,25 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Message handling
 interface MessageRequest {
-  action: 'summarizePage' | 'chatWithAI'
+  action: 'summarizePage' | 'chatWithAI' | 'getTaskSuggestions' | 'saveNote' | 'pageLoaded'
   content?: string
   message?: string
   context?: string
+  task?: string
+  note?: {
+    title: string
+    content: string
+    url?: string
+    domain?: string
+    tags?: string[]
+  }
 }
 
 interface MessageResponse {
   success: boolean
   summary?: string
   response?: string
+  suggestions?: string[]
   error?: string
 }
 
@@ -96,6 +106,25 @@ chrome.runtime.onMessage.addListener((
     // Store page context for potential note linking
     sendResponse({ success: true });
     return true;
+  }
+
+  if (request.action === 'getTaskSuggestions') {
+    const taskTitle = request.task ?? ''
+    if (!taskTitle.trim()) {
+      sendResponse({ success: false, error: 'Task title is required' })
+      return true
+    }
+
+    apiService.generateTaskSuggestions(taskTitle)
+      .then(suggestions => {
+        sendResponse({ success: true, suggestions })
+      })
+      .catch(error => {
+        console.error('Failed to get task suggestions:', error)
+        sendResponse({ success: false, error: 'Failed to get task suggestions' })
+      })
+
+    return true
   }
 
   if (request.action === 'summarizePage') {

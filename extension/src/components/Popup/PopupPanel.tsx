@@ -14,7 +14,6 @@ const PopupPanel: React.FC = () => {
     setShowPopup, 
     currentPageContext,
     addNote,
-    updateNote,
     getNotesByUrl
   } = useAppStore();
 
@@ -76,7 +75,7 @@ const PopupPanel: React.FC = () => {
 
       if (action === 'summarize') {
         const summary = await apiService.summarizeContent(content);
-        console.log('AI Summary:', summary);
+        console.log('AI Summary:', summary.text);
         // TODO: Display summary in UI
       } else if (action === 'analyze') {
         const analysis = await apiService.analyzeContent(content);

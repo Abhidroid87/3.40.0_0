@@ -1,174 +1,82 @@
-# Manage Mobile App
+# Manage Mobile Workspace
 
-React Native/Expo mobile app for the Manage productivity extension.
+React Native (Expo) client that mirrors the Manage Chrome extension and consumes the shared Firebase/Gemini utilities.
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
-- Node.js 16+ and npm
-- Expo CLI: `npm install -g @expo/cli`
-- Expo Go app on your mobile device (for development)
+- Install prerequisites: Node.js 18+, npm or yarn, and optionally the Expo CLI (`npm install -g @expo/cli`).
+- Install dependencies and scaffold the environment file:
 
-### Installation
-```bash
-cd mobile-app
+```
+cd mobile
 npm install
+cp .env.example .env
 ```
 
-### Development
-```bash
-# Start development server
-npm start
+Populate `.env` with the same Firebase and Gemini credentials used by the Chrome extension.
 
-# Run on specific platform
-npm run android
-npm run ios
-npm run web
+## Development Workflow
+
+```
+npm start            # Launch Metro bundler
+npm run android      # Open Android emulator / connected device
+npm run ios          # Open iOS simulator (macOS only)
+npm run web          # Experimental web build
 ```
 
-### Building for Production
-```bash
-# Android
+`app.config.js` loads `.env`, exposes the values through `Constants.expoConfig.extra`, and `src/config/environment.ts` bridges them into the shared helpers.
+
+## Building
+
+```
 npm run build:android
-
-# iOS
 npm run build:ios
 ```
 
-## 📱 Deep Linking Setup
+For production builds consider configuring Expo Application Services (EAS).
 
-### Custom Scheme
-- **Scheme**: `manageapp://`
-- **Example**: `manageapp://transfer?data=...`
+## 🔄 Sync & Firebase
 
-### Universal Links
-- **iOS**: `https://manage-dashboard.com/transfer`
-- **Android**: `https://manage-dashboard.com/transfer`
+- `storageService` maintains local data using AsyncStorage.
+- `syncService` merges incoming transfers and exposes `pushSnapshotToCloud` to persist snapshots in Firestore once authentication is in place.
+- Firebase is initialised via `shared/firebase` (`firebaseService.ts` simply re-exports the shared instance).
 
-### Testing Deep Links
-1. **Development**: Use Expo CLI to test deep links
-   ```bash
-   npx expo start --dev-client
-   npx uri-scheme open manageapp://transfer --ios
-   ```
+## 🤖 Gemini Stubs
 
-2. **Production**: Test with actual URLs
-   ```bash
-   # Test custom scheme
-   adb shell am start -W -a android.intent.action.VIEW -d "manageapp://transfer?data=..." com.manage.dashboard
-   
-   # Test universal link
-   adb shell am start -W -a android.intent.action.VIEW -d "https://manage-dashboard.com/transfer?data=..." com.manage.dashboard
-   ```
+- `shared/ai/gemini` provides the Gemini client used by `src/services/aiService.ts`.
+- Helper functions `generateAiSuggestion` and `summarizeText` are ready for UI wiring once a Gemini key is configured.
 
-## 🔄 Data Sync Flow
+## Deep Linking
 
-### From Extension to Mobile
-1. User clicks "Sync to Mobile" in extension side panel
-2. Extension opens bridge website with data
-3. Bridge website triggers deep link to mobile app
-4. Mobile app receives data and syncs locally
+- Custom scheme: `manageapp://`
+- Universal link base: `https://manage-dashboard.com`
+- Validate locally with `npx uri-scheme open manageapp://transfer --android` (or `--ios`).
 
-### Data Structure
-```typescript
-interface TransferData {
-  tasks: Task[];
-  notes: Note[];
-  type: 'sync' | 'import';
-  source: 'extension' | 'website';
-  timestamp: string;
-}
+## Project Structure
+
+```
+mobile/
+├── App.tsx                 # Entry point with navigation + env bootstrap
+├── assets/                 # Icons & splash art
+├── android/ ios/           # Native stubs (generated on eject)
+├── src/
+│   ├── config/
+│   ├── screens/
+│   ├── services/
+│   └── types/              # Re-exports from @shared/types
+├── babel.config.js         # Module alias for @shared
+├── metro.config.js         # Watches ../shared for live updates
+└── tsconfig.json           # TS paths for @shared
 ```
 
-## 🏗 Architecture
+## Troubleshooting
 
-### Screens
-- **DashboardScreen**: Main overview with stats and quick actions
-- **TasksScreen**: Full task management interface
-- **NotesScreen**: Notes viewing and editing
-- **DataTransferScreen**: Handles incoming data from extension
+- **Shared modules not found** – Restart Metro after editing `shared/*` or extending watch folders.
+- **Firebase init errors** – Verify `.env` values and confirm the Firebase project allows web/Expo clients.
+- **Gemini auth errors** – Re-check the API key; the shared client throws a descriptive error if missing.
 
-### Services
-- **storageService**: Local data persistence with AsyncStorage
-- **syncService**: Data synchronization and merging logic
-- **apiService**: Backend API integration (placeholder)
+## Next Steps
 
-## 🔧 Configuration
-
-### App Configuration (`app.json`)
-- **Bundle ID**: `com.manage.dashboard`
-- **Scheme**: `manageapp`
-- **Universal Links**: Configured for `manage-dashboard.com`
-
-### Platform-Specific Setup
-
-#### iOS
-- Universal Links configured in `ios/YourApp/YourApp.entitlements`
-- Associated domains: `applinks:manage-dashboard.com`
-
-#### Android
-- Intent filters for custom scheme and universal links
-- App Links verification for `manage-dashboard.com`
-
-## 🧪 Testing
-
-### Manual Testing
-1. Install app on device
-2. Open Chrome extension
-3. Navigate to any webpage
-4. Open side panel and click "Sync to Mobile"
-5. Verify app opens and data is transferred
-
-### Deep Link Testing
-```bash
-# Test custom scheme
-manageapp://transfer?data=%7B%22tasks%22%3A%5B%5D%2C%22notes%22%3A%5B%5D%7D
-
-# Test universal link
-https://manage-dashboard.com/transfer?data=%7B%22tasks%22%3A%5B%5D%2C%22notes%22%3A%5B%5D%7D
-```
-
-## 🔮 Future Enhancements
-
-### Phase 1: Core Features
-- [ ] Real-time sync with backend
-- [ ] Push notifications for reminders
-- [ ] Offline support with sync queue
-
-### Phase 2: Advanced Features
-- [ ] Widget support (iOS/Android)
-- [ ] Apple Watch / Wear OS companion
-- [ ] Siri Shortcuts / Google Assistant integration
-
-### Phase 3: Collaboration
-- [ ] Team workspaces
-- [ ] Shared tasks and notes
-- [ ] Real-time collaboration
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Deep Links Not Working**
-   - Verify app is installed and scheme is correct
-   - Check universal link configuration
-   - Test with `npx uri-scheme` in development
-
-2. **Data Not Syncing**
-   - Check AsyncStorage permissions
-   - Verify JSON parsing in transfer data
-   - Look for errors in Metro logs
-
-3. **App Not Opening from Browser**
-   - Ensure custom scheme is registered
-   - Check if universal links are properly configured
-   - Verify intent filters on Android
-
-### Debug Tools
-- **Metro Logs**: `npx expo start` shows real-time logs
-- **React Native Debugger**: For advanced debugging
-- **Flipper**: For network and storage inspection
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Connect authenticated sync flows to `pushSnapshotToCloud`.
+- Surface AI helpers inside dashboard widgets.
+- Add automated testing and EAS build profiles as the project matures.
