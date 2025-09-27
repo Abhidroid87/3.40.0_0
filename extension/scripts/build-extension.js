@@ -19,6 +19,7 @@ if (!manifest.background) {
   manifest.background = {};
 }
 manifest.background.service_worker = 'background.js';
+manifest.background.type = 'module';
 
 if (!manifest.content_scripts) {
   manifest.content_scripts = [{ matches: ['<all_urls>'] }];
