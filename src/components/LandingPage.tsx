@@ -10,6 +10,16 @@ import SocialProof from './landing/SocialProof';
 import FinalCTA from './landing/FinalCTA';
 import Footer from './landing/Footer';
 import { AuthForm } from './AuthForm';
+import { ThemeProvider } from '../providers/ThemeProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
+// Import images
+import heroMockup from '../assets/hero-mockup.jpg';
+import extensionMockup from '../assets/extension-mockup.jpg';
+import syncPreviewImg from '../assets/sync-preview.jpg';
+import aiFeaturesBg from '../assets/ai-features-bg.jpg';
 
 const LandingPage = () => {
   const {
@@ -63,14 +73,16 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen">
-      <Navigation 
-        isAuthenticated={isAuthenticated}
-        user={user}
-        onSignIn={handleSignIn}
-        onGetStarted={handleGetStarted}
-        onSignOut={handleSignOut}
-      />
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <div className="min-h-screen">
+          <Navigation 
+            isAuthenticated={isAuthenticated}
+            user={user}
+            onSignIn={handleSignIn}
+            onGetStarted={handleGetStarted}
+            onSignOut={handleSignOut}
+          />
       
       <main>
         <HeroSection 
@@ -135,6 +147,8 @@ const LandingPage = () => {
         </div>
       )}
     </div>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 };
 

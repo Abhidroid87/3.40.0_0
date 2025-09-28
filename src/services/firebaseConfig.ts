@@ -1,9 +1,8 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getAnalytics } from 'firebase/analytics';
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getAnalytics, Analytics } from 'firebase/analytics';
 
-// Firebase configuration with environment variables and fallbacks
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDPCB-djaDfmWUCz76balbwYhWJD4QAKOo",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "api-sample-20c3a.firebaseapp.com",
@@ -22,15 +21,21 @@ const isFirebaseConfigValid = () => {
 };
 
 // Initialize Firebase only if config is valid
-let app;
-let auth;
-let db;
-let analytics;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let analytics: Analytics | undefined;
 
-export const firebaseStatus = {
+export interface FirebaseStatus {
+  ready: boolean;
+  missingConfig: boolean;
+  error: Error | null;
+}
+
+export const firebaseStatus: FirebaseStatus = {
   ready: false,
   missingConfig: false,
-  error: null as Error | null
+  error: null
 };
 
 try {
@@ -49,12 +54,13 @@ try {
   } else {
     firebaseStatus.missingConfig = true;
     console.warn('Firebase configuration is missing or invalid');
+    throw new Error('Firebase configuration is missing or invalid');
   }
 } catch (error) {
   firebaseStatus.error = error as Error;
   console.error('Firebase initialization failed:', error);
+  throw error;
 }
 
 // Export Firebase services
 export { auth, db, analytics };
-export default app;

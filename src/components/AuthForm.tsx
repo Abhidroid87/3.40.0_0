@@ -2,25 +2,29 @@ import React, { useState } from 'react';
 import { firebaseService } from '../services/firebaseService';
 
 interface AuthFormProps {
-  onAuthSuccess: () => void;
+  mode: 'signin' | 'signup';
+  onSuccess: () => void;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ mode, onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    const response = await firebaseService.signIn(email, password);
+    const response = mode === 'signup'
+      ? await firebaseService.signUp(email, password)
+      : await firebaseService.signIn(email, password);
+
     if (response.error) {
       setError(response.error);
     } else {
-      onAuthSuccess();
+      onSuccess();
     }
     setIsLoading(false);
   };
@@ -33,14 +37,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     if (response.error) {
       setError(response.error);
     } else {
-      onAuthSuccess();
+      onSuccess();
     }
     setIsLoading(false);
   };
 
   return (
     <div className="flex flex-col items-center p-6 bg-white/10 backdrop-blur-md rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-6 text-white">Sign In</h2>
+      <h2 className="text-2xl font-bold mb-6 text-white">
+        {mode === 'signup' ? 'Sign Up' : 'Sign In'}
+      </h2>
       
       {error && (
         <div className="w-full p-3 mb-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -48,7 +54,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         </div>
       )}
 
-      <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+      <form onSubmit={handleSubmit} className="w-full space-y-4">
         <div>
           <input
             type="email"
@@ -74,7 +80,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           disabled={isLoading}
           className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
         >
-          {isLoading ? 'Signing in...' : 'Sign in with Email'}
+          {isLoading 
+            ? (mode === 'signup' ? 'Signing up...' : 'Signing in...') 
+            : (mode === 'signup' ? 'Sign up with Email' : 'Sign in with Email')}
         </button>
       </form>
 
@@ -102,7 +110,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          <span>{isLoading ? 'Signing in...' : 'Sign in with Google'}</span>
+          <span>
+            {isLoading 
+              ? 'Signing in...' 
+              : `Sign ${mode === 'signup' ? 'up' : 'in'} with Google`}
+          </span>
         </button>
       </div>
     </div>
