@@ -1,16 +1,14 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAppStore } from '../store/appStore';
+import { useAuth } from '../hooks/useAuth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, authLoading } = useAppStore();
+  const { isAuthenticated, isLoading, login } = useAuth();
 
-  if (authLoading) {
-    // You can replace this with a loading spinner component
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -19,8 +17,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    // For the extension, trigger the login flow
+    void login();
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="mb-4">Please log in to continue</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
   return <>{children}</>;
-};
+};  

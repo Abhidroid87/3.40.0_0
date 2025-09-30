@@ -1,106 +1,129 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User,
-  GoogleAuthProvider,
-  signInWithPopup,
-  type Auth
-} from 'firebase/auth';
-import { auth, firebaseStatus } from './firebaseConfig';
-import { ensureUserProfile } from './profileService';
+import { getStoredToken, removeStoredToken } from '../utils/tokenStorage';
 
-export interface AuthService {
-  user: User | null;
-  signUp: (email: string, password: string) => Promise<User>;
-  signIn: (email: string, password: string) => Promise<User>;
-  signInWithGoogle: () => Promise<User>;
-  signOut: () => Promise<void>;
-  getCurrentUser: () => User | null;
-  onAuthStateChange: (callback: (user: User | null) => void) => () => void;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || 'http://localhost:4000';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
 }
 
-class FirebaseAuthService implements AuthService {
-  private _user: User | null = null;
+export interface AuthService {
+  user: AuthUser | null;
+  isAuthenticated: () => Promise<boolean>;
+  redirectToLogin: () => Promise<void>;
+  handleAuthCallback: (params: URLSearchParams) => Promise<string>;
+  signOut: () => Promise<void>;
+}
 
-  constructor(private readonly authInstance: Auth) {
-    onAuthStateChanged(this.authInstance, (user) => {
-      this._user = user;
-      if (user) {
-        void ensureUserProfile(user);
-      }
-    });
+class WebAuthService implements AuthService {
+  private static instance: WebAuthService;
+  private _user: AuthUser | null = null;
+
+  private constructor() {
+    this.init();
+  }
+
+  static getInstance(): WebAuthService {
+    if (!WebAuthService.instance) {
+      WebAuthService.instance = new WebAuthService();
+    }
+    return WebAuthService.instance;
   }
 
   get user() {
     return this._user;
   }
 
-  async signUp(email: string, password: string): Promise<User> {
-    const { user } = await createUserWithEmailAndPassword(this.authInstance, email, password);
-    await ensureUserProfile(user);
-    return user;
+  private async init() {
+    const token = await getStoredToken();
+    if (token) {
+      try {
+        await this.validateToken(token);
+      } catch (error) {
+        await this.signOut();
+      }
+    }
   }
 
-  async signIn(email: string, password: string): Promise<User> {
-    const { user } = await signInWithEmailAndPassword(this.authInstance, email, password);
-    await ensureUserProfile(user);
-    return user;
+  private async validateToken(token: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/auth/validate`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Token validation failed');
+      }
+
+      const userData = await response.json();
+      this._user = userData.user;
+      return true;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      this._user = null;
+      return false;
+    }
   }
 
-  async signInWithGoogle(): Promise<User> {
-    const provider = new GoogleAuthProvider();
-    const { user } = await signInWithPopup(this.authInstance, provider);
-    await ensureUserProfile(user);
-    return user;
+  async redirectToLogin() {
+    // Generate state parameter for security
+    const state = Math.random().toString(36).substring(7);
+    
+    // Store state in local storage for verification
+    await chrome.storage.local.set({ authState: state });
+    
+    // Redirect to landing page login
+    const loginUrl = new URL(`${WEBSITE_URL}/login`);
+    loginUrl.searchParams.set('state', state);
+    loginUrl.searchParams.set('extension', 'true');
+    loginUrl.searchParams.set('version', chrome.runtime.getManifest().version);
+    
+    chrome.tabs.create({ url: loginUrl.toString() });
+  }
+
+  async handleAuthCallback(params: URLSearchParams): Promise<string> {
+    const token = params.get('token');
+    const state = params.get('state');
+    
+    // Verify state parameter
+    const { authState } = await chrome.storage.local.get('authState');
+    if (state !== authState) {
+      throw new Error('Invalid state parameter');
+    }
+    
+    // Clear stored state
+    await chrome.storage.local.remove('authState');
+    
+    if (!token) {
+      throw new Error('No token received');
+    }
+    
+    // Validate and store token
+    const isValid = await this.validateToken(token);
+    if (!isValid) {
+      throw new Error('Token validation failed');
+    }
+    
+    return token;
   }
 
   async signOut(): Promise<void> {
-    await firebaseSignOut(this.authInstance);
+    this._user = null;
+    await removeStoredToken();
+    await chrome.storage.local.remove(['authState']);
   }
 
-  getCurrentUser(): User | null {
-    return this.authInstance.currentUser ?? null;
-  }
-
-  onAuthStateChange(callback: (user: User | null) => void) {
-    return onAuthStateChanged(this.authInstance, callback);
-  }
-}
-
-class DisabledAuthService implements AuthService {
-  user: User | null = null;
-
-  private readonly error = firebaseStatus.error ?? new Error('Firebase auth is not configured.');
-
-  async signUp(): Promise<User> {
-    return Promise.reject(this.error);
-  }
-
-  async signIn(): Promise<User> {
-    return Promise.reject(this.error);
-  }
-
-  async signInWithGoogle(): Promise<User> {
-    return Promise.reject(this.error);
-  }
-
-  async signOut(): Promise<void> {
-    return Promise.reject(this.error);
-  }
-
-  getCurrentUser(): User | null {
-    return null;
-  }
-
-  onAuthStateChange(callback: (user: User | null) => void) {
-    callback(null);
-    return () => undefined;
+  async isAuthenticated(): Promise<boolean> {
+    const token = await getStoredToken();
+    if (!token) return false;
+    return this.validateToken(token);
   }
 }
 
 // Create and export a single instance of the auth service
-export const authService: AuthService = auth
-  ? new FirebaseAuthService(auth)
-  : new DisabledAuthService();
+export const authService = WebAuthService.getInstance();

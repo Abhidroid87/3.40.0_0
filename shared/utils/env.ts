@@ -29,25 +29,28 @@ const ENV_KEYS = {
 } as const;
 
 function getEnvValue(key: string, prefix = ''): string | undefined {
-  const fullKey = prefix ? `${prefix}_${key}` : key;
-  const viteKey = `VITE_${fullKey}`;
-  
-  if (typeof process !== 'undefined' && process.env) {
-    if (process.env[fullKey]) return process.env[fullKey];
-    if (process.env[viteKey]) return process.env[viteKey];
-  }
+  // For Vite environment variables
+  const viteKey = `VITE_${key}`;
   
   try {
+    // First try Vite's import.meta.env
     if (import.meta?.env) {
-      if (import.meta.env[fullKey]) return import.meta.env[fullKey];
-      if (import.meta.env[viteKey]) return import.meta.env[viteKey];
+      const value = import.meta.env[viteKey];
+      if (value) return value;
     }
   } catch {
-    // Ignore import.meta errors
+    // Ignore import.meta errors in non-Vite environments
   }
 
+  // Then try process.env
+  if (typeof process !== 'undefined' && process.env) {
+    const value = process.env[viteKey];
+    if (value) return value;
+  }
+
+  // Finally try global app env
   if (globalThis.__APP_ENV__) {
-    const value = globalThis.__APP_ENV__[fullKey] || globalThis.__APP_ENV__[viteKey];
+    const value = globalThis.__APP_ENV__[viteKey];
     if (value) return value;
   }
   
@@ -55,14 +58,24 @@ function getEnvValue(key: string, prefix = ''): string | undefined {
 }
 
 export function buildFirebaseConfigFromEnv(): FirebaseConfig {
-  return {
-    apiKey: getEnvValue(ENV_KEYS.FIREBASE.API_KEY) || '',
-    authDomain: getEnvValue(ENV_KEYS.FIREBASE.AUTH_DOMAIN) || '',
-    projectId: getEnvValue(ENV_KEYS.FIREBASE.PROJECT_ID) || '',
-    storageBucket: getEnvValue(ENV_KEYS.FIREBASE.STORAGE_BUCKET) || '',
-    messagingSenderId: getEnvValue(ENV_KEYS.FIREBASE.MESSAGING_SENDER_ID) || '',
-    appId: getEnvValue(ENV_KEYS.FIREBASE.APP_ID) || ''
+  const config = {
+    apiKey: getEnvValue('FIREBASE_API_KEY') || '',
+    authDomain: getEnvValue('FIREBASE_AUTH_DOMAIN') || '',
+    projectId: getEnvValue('FIREBASE_PROJECT_ID') || '',
+    storageBucket: getEnvValue('FIREBASE_STORAGE_BUCKET') || '',
+    messagingSenderId: getEnvValue('FIREBASE_MESSAGING_SENDER_ID') || '',
+    appId: getEnvValue('FIREBASE_APP_ID') || ''
   };
+
+  if (import.meta?.env?.DEV) {
+    console.debug('Firebase Config:', {
+      ...config,
+      apiKey: config.apiKey ? '****' : '',
+      appId: config.appId ? '****' : ''
+    });
+  }
+
+  return config;
 }
 
 export function buildGeminiConfigFromEnv(): GeminiConfig {

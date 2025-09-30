@@ -1,3 +1,5 @@
+import { handleAuthMessage } from './messageHandlers/auth';
+
 console.log('Background script loaded');
 
 // Listen for installation
@@ -32,18 +34,42 @@ if (chrome.action && chrome.action.onClicked) {
   console.warn('chrome.action is not available');
 }
 
+// Handle OAuth2 callback
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+  if (!details.url.startsWith(import.meta.env.VITE_WEBSITE_URL || 'http://localhost:4000')) {
+    return;
+  }
+
+  try {
+    const url = new URL(details.url);
+    if (url.pathname === '/auth/callback') {
+      const token = await handleAuthMessage({
+        action: 'handleAuthCallback',
+        payload: url.search.substring(1)
+      });
+      
+      // Close the auth tab after successful login
+      chrome.tabs.remove(details.tabId);
+      
+      // Notify all extension views about successful auth
+      chrome.runtime.sendMessage({ type: 'AUTH_SUCCESS', token });
+    }
+  } catch (error) {
+    console.error('Auth callback error:', error);
+  }
+});
+
 // Message handling
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Message received:', message);
   
-  if (message.type === 'GET_AUTH_TOKEN') {
-    if (chrome.identity && chrome.identity.getAuthToken) {
-      chrome.identity.getAuthToken({ interactive: true }, function(token) {
-        sendResponse({ token: token });
-      });
+  if (message.type.startsWith('AUTH_')) {
+    const [, action] = message.type.split('_');
+    if (action) {
+      handleAuthMessage({ action: action.toLowerCase(), payload: message.payload })
+        .then(sendResponse)
+        .catch(error => sendResponse({ error: error.message }));
       return true; // Will respond asynchronously
-    } else {
-      sendResponse({ error: 'Identity API not available' });
     }
   }
   
